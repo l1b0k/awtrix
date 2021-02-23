@@ -1,0 +1,26 @@
+name: ACR
+on: [ push, pull_request ]
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Login to ACR
+        uses: aliyun/acr-login@v1
+        with:
+          login-server: https://registry.cn-hangzhou.aliyuncs.com
+          username: "${{ secrets.REGISTRY_USERNAME }}"
+          password: "${{ secrets.REGISTRY_PASSWORD }}"
+
+      - name: Build and push image
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t registry.cn-hangzhou.aliyuncs.com/l1b0k/awtrix:$IMAGE_TAG .
+          docker tag registry.cn-hangzhou.aliyuncs.com/l1b0k/awtrix:$IMAGE_TAG registry.cn-hangzhou.aliyuncs.com/l1b0k/awtrix
+          docker push registry.cn-hangzhou.aliyuncs.com/l1b0k/awtrix:$IMAGE_TAG
+          docker push registry.cn-hangzhou.aliyuncs.com/l1b0k/awtrix

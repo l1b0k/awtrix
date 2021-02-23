@@ -1,0 +1,130 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: awtrix
+data:
+  default.conf: |
+    upstream awtrix {
+        server 127.0.0.1:7000;
+    }
+
+    server {
+        listen 80;
+        server_name  _;
+        gzip on;
+
+        auth_basic "Restricted";
+        auth_basic_user_file conf.d/.htpasswd;
+
+        location / {
+            proxy_redirect off;
+            proxy_pass http://awtrix;
+
+            proxy_set_header  Host                $http_host;
+            proxy_set_header  X-Real-IP           $remote_addr;
+            proxy_set_header  X-Forwarded-Ssl     on;
+            proxy_set_header  X-Forwarded-For     $proxy_add_x_forwarded_for;
+            proxy_set_header  X-Forwarded-Proto   $scheme;
+            proxy_set_header  X-Frame-Options     SAMEORIGIN;
+
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_read_timeout 86400;
+
+            client_max_body_size        100m;
+            client_body_buffer_size     128k;
+
+            proxy_buffer_size           4k;
+            proxy_buffers               4 32k;
+            proxy_busy_buffers_size     64k;
+            proxy_temp_file_write_size  64k;
+        }
+    }
+  .htpasswd: |
+    admin:YAf9KBvtmzUh6
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: awtrix
+spec:
+  selector:
+    matchLabels:
+      app: awtrix
+  template:
+    metadata:
+      labels:
+        app: awtrix
+    spec:
+      terminationGracePeriodSeconds: 5
+      containers:
+        - name: awtrix
+          image: registry.cn-hangzhou.aliyuncs.com/l1b0k/awtrix
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          volumeMounts:
+            - name: date
+              mountPath: /etc/localtime
+              readOnly: true
+        - name: nginx
+          image: nginx:1.19.7
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          volumeMounts:
+            - name: configvolume
+              mountPath: /etc/nginx/conf.d/
+              readOnly: true
+      volumes:
+        - name: configvolume
+          configMap:
+            name: awtrix
+            items:
+              - key: default.conf
+                path: default.conf
+              - key: .htpasswd
+                path: .htpasswd
+        - name: date
+          hostPath:
+            path: /etc/localtime
+            type: File
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: awtrix
+spec:
+  selector:
+    app: awtrix
+  type: LoadBalancer
+  ports:
+    - name: port80
+      protocol: TCP
+      port: 80
+      targetPort: 80
+    - name: port7001
+      protocol: TCP
+      port: 7001
+      targetPort: 7001
+
+
+
