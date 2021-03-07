@@ -1,4 +1,4 @@
-FROM openjdk:16-alpine
+FROM adoptopenjdk:11-jre-hotspot-bionic
 
 ADD https://blueforcer.de/awtrix/stable/awtrix.jar /usr/local/bin/awtrix.jar
 ENV AUTOUPDATE=false AWTRIX_BETA=false TZ=Asia/Shanghai
